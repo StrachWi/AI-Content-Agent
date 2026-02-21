@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Node.js / Vue
+node_modules/
+dist/
+.DS_Store
