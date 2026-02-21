@@ -159,6 +159,66 @@ onMounted(fetchList)
 </script>
 
 
+import { ref } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+
+// --- 数据区 ---
+const tableData = ref([
+  { id: 1, name: '抖音产品推广模板', type: '抖音', time: '2023-10-01' },
+  { id: 2, name: '小红书种草模板', type: '小红书', time: '2023-10-05' },
+  { id: 3, name: '活动宣传通用', type: '通用', time: '2023-10-10' },
+])
+
+// 控制右侧编辑框显示
+const showEditor = ref(false)
+const isEditMode = ref(false) // true为编辑，false为新增
+
+// 表单数据
+const formData = ref({
+  name: '',
+  type: '',
+  content: ''
+})
+
+// --- 交互逻辑 ---
+// 1. 点击新增
+const handleAdd = () => {
+  isEditMode.value = false
+  formData.value = { name: '', type: '', content: '' } // 重置表单
+  showEditor.value = true
+}
+
+// 2. 点击编辑
+const handleEdit = (row) => {
+  isEditMode.value = true
+  // 模拟回填数据
+  formData.value = { 
+    name: row.name, 
+    type: row.type, 
+    content: '这是模拟的模板内容框架...' 
+  } 
+  showEditor.value = true
+}
+
+// 3. 点击删除
+const handleDelete = (row) => {
+  ElMessageBox.confirm('确认删除该模板吗？', '提示', {
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(() => {
+    ElMessage.success('删除成功')
+    // 这里写删除逻辑...
+  })
+}
+
+// 4. 保存
+const handleSave = () => {
+  ElMessage.success(isEditMode.value ? '修改成功' : '新增成功')
+  showEditor.value = false
+}
+</script>
+
 <template>
   <div class="material-container">
     
@@ -176,6 +236,9 @@ onMounted(fetchList)
             <el-icon><Refresh /></el-icon> 刷新列表
           </el-button>
 
+          <el-button type="danger" plain>
+            <el-icon><Delete /></el-icon> 刷新列表
+          </el-button>
         </div>
       </div>
 
@@ -190,11 +253,18 @@ onMounted(fetchList)
 
         <el-table-column prop="create_time" label="创建时间" width="180" />
 
+        <el-table-column prop="type" label="模型类型" width="120">
+          <template #default="scope">
+            <el-tag :type="scope.row.type === '抖音' ? '' : 'warning'">{{ scope.row.type }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="time" label="创建时间" width="150" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
             <el-button link type="danger" @click="handleDelete(scope.row)">删除</el-button>
             <el-button link type="success" @click="handleSelect(scope.row)">选用</el-button>
+            <el-button link type="success">选用</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -215,6 +285,7 @@ onMounted(fetchList)
 
           <el-form-item label="模型类型">
             <el-select v-model="formData.platform" placeholder="请选择平台">
+            <el-select v-model="formData.type" placeholder="请选择平台">
               <el-option label="抖音" value="抖音" />
               <el-option label="小红书" value="小红书" />
               <el-option label="通用" value="通用" />
@@ -253,6 +324,14 @@ onMounted(fetchList)
 .left-panel {
   flex: 1;
   min-width: 0;           /* ✅ 防止 el-table 宽度撑破 flex 布局 */
+  height: 100%;
+  gap: 20px;
+  overflow: hidden; /* 防止溢出 */
+}
+
+/* 左侧面板 */
+.left-panel {
+  flex: 1; /* 默认占满 */
   transition: all 0.3s;
   display: flex;
   flex-direction: column;
@@ -277,6 +356,7 @@ onMounted(fetchList)
 .right-panel {
   flex: 0 0 30%;
   min-width: 360px;        /* ✅ 保底宽度，防止看不到 */
+  flex: 0 0 30%; /* 固定 30% */
   background: #fff;
   border-left: 1px solid #e4e7ed;
   padding: 20px;
@@ -285,6 +365,7 @@ onMounted(fetchList)
   box-shadow: -2px 0 10px rgba(0,0,0,0.05);
   overflow: auto;          /* ✅ 自己滚动，不靠父容器裁剪 */
 }
+
 
 .panel-header {
   margin-bottom: 20px;

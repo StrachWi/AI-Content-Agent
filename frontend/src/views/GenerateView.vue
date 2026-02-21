@@ -104,12 +104,16 @@ const copyText = (text) => {
             <el-button size="small" @click="isEdit = !isEdit">{{ isEdit ? '保存修改' : '编辑' }}</el-button>
           </div>
           <el-input type="textarea" v-model="resultData.redbook" :readonly="!isEdit" :rows="8" />
+            <el-button size="small">编辑</el-button>
+          </div>
+          <el-input type="textarea" v-model="resultData.redbook" readonly :rows="8" />
         </el-tab-pane>
       </el-tabs>
 
       <!-- 底部操作栏 -->
       <div class="result-actions">
         <el-button type="primary" @click="ElMessage.success('已保存（占位）')">保存文案</el-button>
+        <el-button type="primary">保存文案</el-button>
         <el-button type="success" @click="copyText(resultData.douyin)">导出/复制文案</el-button>
         <el-button plain @click="handleGenerate">重新生成</el-button>
       </div>
