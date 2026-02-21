@@ -25,16 +25,18 @@ class TemplateRead(TemplateCreate):
         from_attributes = True
 
 
-# --- 3. 给AI组用的模型 (前端传来的生成请求) ---
+# --- 3. 给AI组用的模型 (升级版：包含9大钉子) ---
 class GenerateRequest(BaseModel):
-    template_id: int  # 用户选了哪个模板
-    identity: str  # 用户的身份，例如学生、博主等等
-    genre: str  # 用户想要的文体，例如正式、幽默等等
-    time: str  # 用户想要的时间，例如现在、昨天等等
-    platform: str  # 用户想要的发布平台，例如小红书、抖音等等
-    topic: str  # 用户想要的主题，例如美食等等
-    keyword: str  # 用户输了什么关键词
-    style: str  # 用户想要的风格，例如文艺、搞笑等等
-    emotion: str  # 用户想要的情绪，例如开心、伤感等等
-    length: str  # 用户想要的长度，例如短、中、长、或者精确到多少字以内等等
-    keyword: str  # 用户输了什么词
+    template_id: int  # 模板编号
+
+    # --- 核心 9 大参数 (设为可选，给定默认值，防止报错) ---
+    keyword: str  # 关键词
+
+    identity: Optional[str] = "资深文案专家"  # 身份
+    genre: Optional[str] = "社交媒体文案"  # 体裁
+    time: Optional[str] = "近期"  # 时间
+    platform: Optional[str] = "全网"  # 平台
+    topic: Optional[str] = "通用"  # 主题
+    style: Optional[str] = "吸引人"  # 风格
+    emotion: Optional[str] = "积极"  # 情感
+    length: Optional[str] = "200字左右"  # 字数
