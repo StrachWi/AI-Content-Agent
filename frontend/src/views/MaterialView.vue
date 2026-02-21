@@ -2,43 +2,26 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
-
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-
-const handleSelect = (row) => {
-  // 1️⃣ 存储选中的模板
-  localStorage.setItem('selectedTemplate', JSON.stringify(row))
-
-  // 2️⃣ 提示
-  ElMessage.success(`已选用模板：${row.name}`)
-
-  // 3️⃣ 跳转到生成页面
-  router.push('/generate')
-}
-
-
-// ====== 后端 API 基地址（你的后端 main.py + CORS 已允许 5173）======
+// 后端 API 地址
 const API_BASE = 'http://127.0.0.1:8000/api/templates'
 
 // --- 数据区 ---
-const tableData = ref([])      // 从后端读
+const tableData = ref([])
 const loading = ref(false)
-
-// 控制右侧编辑框显示
 const showEditor = ref(false)
-const isEditMode = ref(false)  // true编辑，false新增
-const editingId = ref(null)    // 正在编辑的模板 id
+const isEditMode = ref(false)
+const editingId = ref(null)
 
-// 表单数据（字段对齐后端：name/platform/content）
 const formData = ref({
   name: '',
   platform: '',
   content: ''
 })
 
-// --- 工具：拉取列表 ---
+// --- 拉取列表 ---
 const fetchList = async () => {
   loading.value = true
   try {
@@ -46,13 +29,13 @@ const fetchList = async () => {
     if (res.data.code !== 200) throw new Error(res.data.msg)
     tableData.value = res.data.data || []
   } catch (e) {
-    ElMessage.error(e.message || '拉取模板列表失败')
+    ElMessage.error('无法连接后端，请确认后端已启动: ' + e.message)
   } finally {
     loading.value = false
   }
 }
 
-// --- 1. 点击新增 ---
+// --- 操作逻辑 ---
 const handleAdd = () => {
   isEditMode.value = false
   editingId.value = null
@@ -60,137 +43,89 @@ const handleAdd = () => {
   showEditor.value = true
 }
 
-
-// --- 2. 点击编辑 ---
 const handleEdit = (row) => {
   isEditMode.value = true
   editingId.value = row.id
-  formData.value = {
-    name: row.name,
-    platform: row.platform,
-    content: row.content
-  }
+  formData.value = { name: row.name, platform: row.platform, content: row.content }
   showEditor.value = true
 }
 
-// --- 3. 点击删除 ---
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm('确认删除该模板吗？', '提示', {
-      confirmButtonText: '删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
-
+    await ElMessageBox.confirm('确认删除该模板吗？', '提示', { type: 'warning' })
     const res = await axios.delete(`${API_BASE}/${row.id}`)
-    if (res.data.code !== 200) throw new Error(res.data.msg)
-
-    ElMessage.success('删除成功')
-    // 如果正在编辑被删的那条，顺便关掉编辑面板
-    if (editingId.value === row.id) showEditor.value = false
-
-    await fetchList()
-  } catch (e) {
-    // 用户点取消也会走 catch，不提示错误
-  }
+    if (res.data.code === 200) {
+      ElMessage.success('删除成功')
+      fetchList()
+    }
+  } catch (e) {}
 }
 
-// --- 4. 保存（新增 or 编辑）---
+const handleSelect = (row) => {
+  // 存储选中的模板，供生成页面使用
+  localStorage.setItem('selectedTemplate', JSON.stringify(row))
+  ElMessage.success(`已选用：${row.name}`)
+  router.push('/generate')
+}
+
 const handleSave = async () => {
-  // 基本校验（你们组要求：必须包含 {keyword}）
-  //"{identity}","{genre}","{time}","{platform}","{topic}","{keyword}","{style}","{emotion}","{length}"
+  // 1. 基础非空校验
   if (!formData.value.name.trim()) return ElMessage.warning('模板名称必填')
   if (!formData.value.platform.trim()) return ElMessage.warning('适用平台必填')
   if (!formData.value.content.trim()) return ElMessage.warning('模板内容必填')
-  if (!formData.value.content.includes('{identity}')) {
-    return ElMessage.warning('模板内容必须包含{identity}占位符')
-  }
-  if (!formData.value.content.includes('{genre}')) {
-    return ElMessage.warning('模板内容必须包含{genre}占位符')
-  }  
-  if (!formData.value.content.includes('{time}')) {
-    return ElMessage.warning('模板内容必须包含{time}占位符')
-  }
-  if (!formData.value.content.includes('{platform}')) {
-    return ElMessage.warning('模板内容必须包含{platform}占位符')
-  }
-  if (!formData.value.content.includes('{topic}')) {
-    return ElMessage.warning('模板内容必须包含{topic}占位符')
-  }
-  if (!formData.value.content.includes('{keyword}')) {
-    return ElMessage.warning('模板内容必须包含 {keyword} 占位符')
-  }
-  if (!formData.value.content.includes('{style}')) {
-    return ElMessage.warning('模板内容必须包含{style}占位符')
-  }
-  if (!formData.value.content.includes('{emotion}')) {
-    return ElMessage.warning('模板内容必须包含{emotion}占位符')
-  }
-  if (!formData.value.content.includes('{length}')) {
-    return ElMessage.warning('模板内容必须包含{length}占位符')
+
+  // 2. 核心占位符校验 (确保包含所有"钉子")
+  const requiredTags = [
+    '{identity}', '{genre}', '{time}', '{platform}', 
+    '{topic}', '{keyword}', '{style}', '{emotion}', '{length}'
+  ]
+  
+  const missingTags = requiredTags.filter(tag => !formData.value.content.includes(tag))
+  
+  if (missingTags.length > 0) {
+    return ElMessage.error(`模板内容缺少以下必要占位符：\n${missingTags.join(', ')}`)
   }
 
-const handleSelect = (row) => {
-  // TODO: 选中模板用于“文案生成”页面，可存 pinia / localStorage / 跳转并带参数
-  ElMessage.success(`已选用模板：${row.name}`)
-}
-
-
+  // 3. 发送请求
   try {
-    if (isEditMode.value && editingId.value != null) {
-      const res = await axios.put(`${API_BASE}/${editingId.value}`, formData.value)
-      if (res.data.code !== 200) throw new Error(res.data.msg)
-      ElMessage.success('修改成功')
+    if (isEditMode.value) {
+      await axios.put(`${API_BASE}/${editingId.value}`, formData.value)
     } else {
-      const res = await axios.post(API_BASE, formData.value)
-      if (res.data.code !== 200) throw new Error(res.data.msg)
-      ElMessage.success('新增成功')
+      await axios.post(API_BASE, formData.value)
     }
-
+    ElMessage.success('保存成功')
     showEditor.value = false
-    await fetchList()
+    fetchList()
   } catch (e) {
-    ElMessage.error(e.message || '保存失败')
+    ElMessage.error('保存失败: ' + e.message)
   }
 }
 
-// 页面加载自动拉取
+// 页面加载时拉取数据
 onMounted(fetchList)
 </script>
 
-
 <template>
   <div class="material-container">
-    
-    <!-- 左侧：列表区 (根据 showEditor 动态调整宽度，或者始终占满由 flex 控制) -->
+    <!-- 左侧列表区 -->
     <div class="left-panel" :class="{ 'shrink': showEditor }">
-      
-      <!-- 顶部操作区 -->
       <div class="top-bar">
         <span class="page-title">素材库管理</span>
         <div class="btn-group">
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon> 新增模板
-          </el-button>
-          <el-button type="primary" plain @click="fetchList">
-            <el-icon><Refresh /></el-icon> 刷新列表
-          </el-button>
-
+          <el-button type="primary" @click="handleAdd">新增模板</el-button>
+          <el-button @click="fetchList">刷新列表</el-button>
         </div>
       </div>
 
-      <!-- 表格列表 -->
-      <el-table :data="tableData" style="width: 100%" stripe border>
-        <el-table-column prop="name" label="模板名称" min-width="150" />
+      <el-table :data="tableData" style="width: 100%" stripe border v-loading="loading">
+        <el-table-column prop="name" label="模板名称" />
         <el-table-column prop="platform" label="适用平台" width="120">
           <template #default="scope">
             <el-tag>{{ scope.row.platform }}</el-tag>
           </template>
         </el-table-column>
-
         <el-table-column prop="create_time" label="创建时间" width="180" />
-
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="handleEdit(scope.row)">编辑</el-button>
             <el-button link type="danger" @click="handleDelete(scope.row)">删除</el-button>

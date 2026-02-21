@@ -8,7 +8,6 @@ from schemas import BaseResponse, TemplateCreate, TemplateRead
 
 router = APIRouter(prefix="/api/templates", tags=["templates"])
 
-
 words=["{identity}","{genre}","{time}","{platform}","{topic}","{keyword}","{style}","{emotion}","{length}"]
 
 def _validate_keyword(content: str):
