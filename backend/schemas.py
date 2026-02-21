@@ -37,3 +37,4 @@ class GenerateRequest(BaseModel):
     style: str  # 用户想要的风格，例如文艺、搞笑等等
     emotion: str  # 用户想要的情绪，例如开心、伤感等等
     length: str  # 用户想要的长度，例如短、中、长、或者精确到多少字以内等等
+    keyword: str  # 用户输了什么词
