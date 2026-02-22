@@ -31,3 +31,4 @@ def read_root():
 
 # 以后大家写的路由(Router)会在这里引入
 app.include_router(templates_router)
+app.include_router(generate.router)
