@@ -12,9 +12,9 @@ words=["{identity}","{genre}","{time}","{platform}","{topic}","{keyword}","{styl
 
 def _validate_keyword(content: str):
     for word in words:
-        if word not in content:
-            return word
-    return "ok"
+        if word in content:
+            return True
+    return False
 
 @router.get("", response_model=BaseResponse)
 def list_templates(db: Session = Depends(get_db)):
@@ -25,8 +25,8 @@ def list_templates(db: Session = Depends(get_db)):
 
 @router.post("", response_model=BaseResponse)
 def create_template(payload: TemplateCreate, db: Session = Depends(get_db)):
-    if _validate_keyword(payload.content)!="ok":
-        return BaseResponse(code=500, msg=f"模板 content 必须包含 {_validate_keyword(payload.content)}", data=None)
+    if not _validate_keyword(payload.content):
+        return BaseResponse(code=500, msg=f"模板 content 必须包含关键词，可选关键词: {', '.join(words)}", data=None)
 
     obj = Template(
         name=payload.name.strip(),
@@ -41,8 +41,8 @@ def create_template(payload: TemplateCreate, db: Session = Depends(get_db)):
 
 @router.put("/{template_id}", response_model=BaseResponse)
 def update_template(template_id: int, payload: TemplateCreate, db: Session = Depends(get_db)):
-    if _validate_keyword(payload.content)!="ok":
-        return BaseResponse(code=500, msg=f"模板 content 必须包含 {_validate_keyword(payload.content)}", data=None)
+    if not _validate_keyword(payload.content):
+        return BaseResponse(code=500, msg=f"模板 content 必须包含关键词，可选关键词: {', '.join(words)}", data=None)
 
     obj = db.query(Template).filter(Template.id == template_id).first()
     if not obj:

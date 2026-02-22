@@ -74,16 +74,16 @@ const handleSave = async () => {
   if (!formData.value.platform.trim()) return ElMessage.warning('适用平台必填')
   if (!formData.value.content.trim()) return ElMessage.warning('模板内容必填')
 
-  // 2. 核心占位符校验 (确保包含所有"钉子")
+  // 2. 占位符校验：至少包含一个
   const requiredTags = [
     '{identity}', '{genre}', '{time}', '{platform}', 
     '{topic}', '{keyword}', '{style}', '{emotion}', '{length}'
   ]
   
-  const missingTags = requiredTags.filter(tag => !formData.value.content.includes(tag))
+  const hasAnyTag = requiredTags.some(tag => formData.value.content.includes(tag))
   
-  if (missingTags.length > 0) {
-    return ElMessage.error(`模板内容缺少以下必要占位符：\n${missingTags.join(', ')}`)
+  if (!hasAnyTag) {
+    return ElMessage.error('模板内容必须至少包含一个占位符（如 {identity}、{topic} 等）')
   }
 
   // 3. 发送请求
@@ -156,12 +156,29 @@ onMounted(fetchList)
             </el-select>
           </el-form-item>
 
-          <el-form-item label="模板框架内容">
+          <el-form-item>
+            <template #label>
+              <div class="custom-label">
+                模板框架内容<br>
+                <span class="keywords-hint">
+                  可选关键词：<br>
+                  {identity}：身份  <br>
+                  {genre}：体裁   <br>
+                  {time}：时间   <br>
+                  {platform}：平台   <br>
+                  {topic}：主题   <br>
+                  {keyword}：关键词   <br>
+                  {style}：风格   <br>
+                  {emotion}：情感   <br>
+                  {length}：长度   <br>
+                </span>
+              </div>
+            </template>
             <el-input 
               v-model="formData.content" 
               type="textarea" 
               :rows="10" 
-              placeholder="输入模板框架，用 [场景]、[卖点] 等标注可变方向..." 
+              placeholder="请在这里输入模板框架，至少要包含一个关键词（关键词由“{}”包含）。示例：“你是一名{platform}的博主，要发布一则主题为{topic}的帖子，请写出一篇合适的文案，情感要求为{emotion}，字数要求为{length}。”" 
             />
           </el-form-item>
         </el-form>
@@ -245,5 +262,17 @@ onMounted(fetchList)
 .slide-fade-leave-to {
   transform: translateX(20px);
   opacity: 0;
+}
+.custom-label {
+  line-height: 1.5;
+  font-weight: 500;
+}
+.keywords-hint {
+  font-size: 12px;
+  font-weight: normal;
+  color: #606266;
+  display: inline-block;
+  margin-top: 4px;
+  line-height: 1.4;
 }
 </style>
