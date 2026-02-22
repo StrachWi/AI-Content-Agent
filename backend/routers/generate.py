@@ -1,5 +1,7 @@
 # backend/routers/generate.py
 import httpx
+import os
+from dotenv import load_dotenv
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -9,9 +11,17 @@ from schemas import BaseResponse, GenerateRequest
 
 router = APIRouter(prefix="/api/generate", tags=["AI生成"])
 
-# 这里填写你的 AI 密钥和接口地址（以 DeepSeek 为例，OpenAI 同理）
-API_KEY = "你的API_KEY"
-BASE_URL = "https://api.deepseek.com/chat/completions" 
+
+# 加载 .env 文件中的环境变量
+load_dotenv()
+
+# 从环境变量中读取配置
+API_KEY = os.getenv("API_KEY")
+BASE_URL = os.getenv("API_BASE_URL", "https://api.deepseek.com")
+
+# 如果 API_KEY 未设置，提供一个更明确的错误
+if not API_KEY:
+    print("警告: 未正确配置 DEEPSEEK_API_KEY，请检查 .env 文件")
 
 @router.post("", response_model=BaseResponse)
 async def generate_content(payload: GenerateRequest, db: Session = Depends(get_db)):
@@ -44,7 +54,7 @@ async def generate_content(payload: GenerateRequest, db: Session = Depends(get_d
                 BASE_URL,
                 headers={"Authorization": f"Bearer {API_KEY}"},
                 json={
-                    "model": "deepseek-chat", # 或 gpt-3.5-turbo
+                    "model": "deepseek-chat", 
                     "messages": [
                         {"role": "system", "content": "你是一个自媒体文案专家。"},
                         {"role": "user", "content": prompt}
