@@ -17,7 +17,7 @@ load_dotenv()
 
 # 从环境变量中读取配置
 API_KEY = os.getenv("API_KEY")
-BASE_URL = os.getenv("API_BASE_URL", "https://api.deepseek.com")
+BASE_URL = os.getenv("API_BASE_URL")
 
 # 如果 API_KEY 未设置，提供一个更明确的错误
 if not API_KEY:
