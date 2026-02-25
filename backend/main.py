@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine
 from routers.templates import router as templates_router
-
+from routers import generate
 # --- 核心动作：创建数据库表 ---
 # 这一步非常关键！它会根据 models.py 自动生成 sql_app.db
 models.Base.metadata.create_all(bind=engine)
