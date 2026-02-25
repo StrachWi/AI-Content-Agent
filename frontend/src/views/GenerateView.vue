@@ -240,26 +240,16 @@ const copyText = (text) => {
     </div>
 
     <!-- 3. 结果展示区 (保持不变) -->
-    <div class="section-card mt-20" v-if="hasResult">
-      <el-tabs type="border-card">
-        <el-tab-pane label="抖音版">
-          <div class="result-header">
-            <h3>抖音适配文案</h3>
-            <el-button size="small" @click="isEdit = !isEdit">{{ isEdit ? '保存修改' : '编辑' }}</el-button>
-          </div>
-          <el-input type="textarea" v-model="resultData.douyin" :readonly="!isEdit" :rows="8" />
-        </el-tab-pane>
-
-        <el-tab-pane label="小红书版">
-          <div class="result-header">
-            <h3>小红书适配文案</h3>
-            <div class="btn-group">
-               <el-button size="small" @click="isEdit = !isEdit">{{ isEdit ? '保存修改' : '编辑' }}</el-button>
-            </div>
-          </div>
-          <el-input type="textarea" v-model="resultData.redbook" :readonly="!isEdit" :rows="8" />
-        </el-tab-pane>
-      </el-tabs>
+<div class="section-card mt-20" v-if="hasResult">
+  
+  <!-- 直接显示内容，不用标签页 -->
+  <div class="result-header">
+    <h3>AI生成文案</h3>
+    <div class="btn-group">
+      <el-button size="small" @click="isEdit = !isEdit">{{ isEdit ? '保存修改' : '编辑' }}</el-button>
+    </div>
+  </div>
+  <el-input type="textarea" v-model="resultData.redbook" :readonly="!isEdit" :rows="8" />
 
       <!-- 底部操作栏 -->
       <div class="result-actions">
