@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 
+
 // --- 状态 ---
 const isLoading = ref(false)
 const hasResult = ref(false)
@@ -36,7 +37,7 @@ onMounted(() => {
     // 自动回填模板名称
     inputData.value.template = template.name
     
-    // (可选优化) 如果模板里自带了平台属性，自动填入 platform 字段
+    //  如果模板里自带了平台属性，自动填入 platform 字段
     if (template.platform) inputData.value.platform = template.platform
     
     ElMessage.success(`已自动加载模板：${template.name}`)
@@ -44,24 +45,120 @@ onMounted(() => {
 })
 
 // --- 逻辑 ---
-const handleGenerate = () => {
-  if (!inputData.value.template) return ElMessage.warning('请先去素材库选用一个模板')
+const handleGenerate = async () => {
+  if (!inputData.value.template) {
+    ElMessage.warning('请先去素材库选用一个模板')
+    return
+  }
+  
+  if (!inputData.value.keywords || inputData.value.keywords.trim() === '') {
+    ElMessage.warning('请填写核心关键词/需求')
+    return
+  }
   
   isLoading.value = true
+  hasResult.value = false
   
-  // TODO: 3组同学请注意！
-  // 你们接入 API 时，发送给后端的参数应该是 inputData.value 的全部内容
-  // 包含：template_id, keywords, identity, genre, time... 等等
-  
-  // 模拟效果 (保持你的逻辑不变，只是让结果更丰富一点，证明参数生效了)
-  setTimeout(() => {
-    isLoading.value = false
-    hasResult.value = true
+  try {
+    // 从 localStorage 获取模板ID
+    const templateStr = localStorage.getItem('selectedTemplate')
+    const template = templateStr ? JSON.parse(templateStr) : {}
     
-    // 模拟结果
-    resultData.value.douyin = `【抖音脚本】\n身份设定：${inputData.value.identity}\n场景：${inputData.value.keywords}\n风格：${inputData.value.style}\n(这是模拟结果)...`
-    resultData.value.redbook = `【小红书文案】\n发布平台：${inputData.value.platform}\n标题：${inputData.value.keywords} 绝绝子！\n情感基调：${inputData.value.emotion}\n(这是模拟结果)...`
-  }, 2000)
+    if (!template.id) {
+      ElMessage.error('模板信息不完整，请重新选择模板')
+      isLoading.value = false
+      return
+    }
+    
+    // 准备请求数据
+    const requestData = {
+      template_id: template.id,
+      keyword: inputData.value.keywords,  // 注意：后端是 keyword，不是 keywords
+      identity: inputData.value.identity,
+      genre: inputData.value.genre,
+      time: inputData.value.time,
+      platform: inputData.value.platform,
+      topic: inputData.value.topic,
+      style: inputData.value.style,
+      emotion: inputData.value.emotion,
+      length: inputData.value.length
+    }
+    
+    console.log('发送给后端的数据:', JSON.stringify(requestData, null, 2))
+    
+    // 使用 fetch 调用后端API
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 70000)  // 70秒超时
+    
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData),
+      signal: controller.signal
+    })
+    
+    clearTimeout(timeoutId)
+    
+    console.log('响应状态:', response.status, response.statusText)
+    
+    // 检查响应状态
+    if (!response.ok) {
+      let errorMsg = `HTTP ${response.status}: ${response.statusText}`
+      try {
+        const errorData = await response.json()
+        errorMsg = errorData.msg || errorData.message || errorMsg
+      } catch (e) {
+        // 无法解析JSON错误信息
+      }
+      throw new Error(errorMsg)
+    }
+    
+    // 解析响应数据
+    const responseData = await response.json()
+    console.log('后端响应:', responseData)
+    
+    // 处理响应
+    if (responseData && responseData.code === 200) {
+      const data = responseData.data
+      
+      // 后端只返回一个 result，先显示相同的内容
+      resultData.value.douyin = data.result
+      resultData.value.redbook = data.result  // 暂时显示相同内容
+      
+      hasResult.value = true
+      ElMessage.success('文案生成成功！')
+      
+      // 可选：保存历史记录ID
+      if (data.history_id) {
+        console.log('历史记录ID:', data.history_id)
+      }
+    } else {
+      // 处理业务错误
+      const errorMsg = responseData?.msg || '生成失败，请稍后重试'
+      ElMessage.error(errorMsg)
+    }
+    
+  } catch (error) {
+    // 处理错误
+    console.error('API调用失败:', error)
+    
+    // 判断错误类型
+    if (error.name === 'AbortError') {
+      ElMessage.error('请求超时，请稍后重试')
+    } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      ElMessage.error('网络连接失败，请检查: 1. 后端服务是否启动 2. 网络连接')
+    } else if (error.message.includes('HTTP')) {
+      // 之前抛出的HTTP错误
+      ElMessage.error(error.message)
+    } else {
+      ElMessage.error('请求错误: ' + error.message)
+    }
+  }finally {
+    // 无论成功或失败，都结束加载状态
+    isLoading.value = false
+    }
 }
 
 const copyText = (text) => {
@@ -143,26 +240,16 @@ const copyText = (text) => {
     </div>
 
     <!-- 3. 结果展示区 (保持不变) -->
-    <div class="section-card mt-20" v-if="hasResult">
-      <el-tabs type="border-card">
-        <el-tab-pane label="抖音版">
-          <div class="result-header">
-            <h3>抖音适配文案</h3>
-            <el-button size="small" @click="isEdit = !isEdit">{{ isEdit ? '保存修改' : '编辑' }}</el-button>
-          </div>
-          <el-input type="textarea" v-model="resultData.douyin" :readonly="!isEdit" :rows="8" />
-        </el-tab-pane>
-
-        <el-tab-pane label="小红书版">
-          <div class="result-header">
-            <h3>小红书适配文案</h3>
-            <div class="btn-group">
-               <el-button size="small" @click="isEdit = !isEdit">{{ isEdit ? '保存修改' : '编辑' }}</el-button>
-            </div>
-          </div>
-          <el-input type="textarea" v-model="resultData.redbook" :readonly="!isEdit" :rows="8" />
-        </el-tab-pane>
-      </el-tabs>
+<div class="section-card mt-20" v-if="hasResult">
+  
+  <!-- 直接显示内容，不用标签页 -->
+  <div class="result-header">
+    <h3>AI生成文案</h3>
+    <div class="btn-group">
+      <el-button size="small" @click="isEdit = !isEdit">{{ isEdit ? '保存修改' : '编辑' }}</el-button>
+    </div>
+  </div>
+  <el-input type="textarea" v-model="resultData.redbook" :readonly="!isEdit" :rows="8" />
 
       <!-- 底部操作栏 -->
       <div class="result-actions">
