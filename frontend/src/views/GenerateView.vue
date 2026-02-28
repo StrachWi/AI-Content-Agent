@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 
 // --- 状态 ---
@@ -165,6 +166,35 @@ const copyText = (text) => {
   navigator.clipboard.writeText(text)
   ElMessage.success('已复制到剪贴板')
 }
+
+// 保存文案到历史记录
+const saveContent = async () => {
+  if (!resultData.value.redbook) {
+    ElMessage.warning('没有可保存的文案')
+    return
+  }
+  
+  try {
+    const templateStr = localStorage.getItem('selectedTemplate')
+    const template = templateStr ? JSON.parse(templateStr) : {}
+    
+    const response = await axios.post('/api/history', {
+      topic: inputData.value.keywords,
+      platform: inputData.value.platform,
+      content: resultData.value.redbook,
+      template_name: template.name || '未知模板'
+    })
+    
+    if (response.data.code === 200) {
+      ElMessage.success('文案已保存到历史记录')
+    } else {
+      ElMessage.error('保存失败，请稍后重试')
+    }
+  } catch (error) {
+    ElMessage.error('网络错误，请检查后端服务是否启动')
+    console.error('Error saving content:', error)
+  }
+}
 </script>
 
 <template>
@@ -253,7 +283,7 @@ const copyText = (text) => {
 
       <!-- 底部操作栏 -->
       <div class="result-actions">
-        <el-button type="primary">保存文案</el-button>
+        <el-button type="primary" @click="saveContent">保存文案</el-button>
         <el-button type="success" @click="copyText(resultData.douyin)">复制抖音文案</el-button>
         <el-button type="success" @click="copyText(resultData.redbook)">复制小红书文案</el-button>
         <el-button plain @click="handleGenerate">重新生成</el-button>

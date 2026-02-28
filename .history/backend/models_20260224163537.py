@@ -26,16 +26,9 @@ class History(Base):
 
     # 记录用了哪个模板生成的
     template_id = Column(Integer, nullable=True)
-    template_name = Column(String(100), nullable=True)  # 模板名称
 
     # 用户当时输入的关键词 (为了方便回顾)
     user_input = Column(Text)
-
-    # 创作主题
-    topic = Column(String(200), nullable=True)
-
-    # 发布平台
-    platform = Column(String(50), nullable=True)
 
     # AI 生成的结果 (存下来，防止丢失)
     ai_result = Column(Text)

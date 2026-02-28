@@ -1,21 +1,15 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
-// ================= 1. 假数据与状态 =================
-const historyList = ref([
-  { id: 1, keyword: '开学季笔记本', template: '小红书种草', time: '2023-10-12', platform: '小红书', content: '✨开学季必备！这款笔记本颜值太高了吧...\n超级流畅不卡顿，绝绝子！' },
-  { id: 2, keyword: '新款口红测评', template: '抖音短视频', time: '2023-10-11', platform: '抖音', content: 'OMG！家人们，今天测的这支口红太显白了！\n黄皮闭眼入，点赞收藏防走丢！' },
-  { id: 3, keyword: '运动鞋推广', template: '朋友圈文案', time: '2023-10-10', platform: '微信', content: '跑起来，风都在帮你！新款缓震运动鞋上新，快来带走你的秋季第一双跑鞋。' },
-  { id: 4, keyword: '双十一预售', template: '小红书种草', time: '2023-10-09', platform: '小红书', content: '双十一攻略来啦！抄作业必看...' },
-  { id: 5, keyword: '护肤品推荐', template: '通用文案', time: '2023-10-08', platform: '通用', content: '熬夜党救星，这套水乳真的绝。' },
-])
-
-// 右侧统计假数据
+// ================= 1. 状态 =================
+const historyList = ref([])
+const loading = ref(false)
 const stats = ref({
-  total: 156,
-  today: 12,
-  hotTemplate: '小红书种草'
+  total: 0,
+  today: 0,
+  hotTemplate: '暂无数据'
 })
 
 // 筛选与分页状态
@@ -23,6 +17,7 @@ const searchKeyword = ref('')
 const dateRange = ref('') // 格式为 [Date, Date]
 const currentPage = ref(1)
 const pageSize = ref(4)
+const totalRecords = ref(0)
 
 // 查看/复制弹窗状态
 const dialogVisible = ref(false)
@@ -58,15 +53,65 @@ const filteredList = computed(() => {
 
 // 分页截取：从过滤后的数据中，根据当前页码截取对应的数据
 const pagedList = computed(() => {
-  const startIdx = (currentPage.value - 1) * pageSize.value
-  const endIdx = startIdx + pageSize.value
-  return filteredList.value.slice(startIdx, endIdx)
+  return historyList.value
 })
 
 // 分页页码改变触发
 const handleCurrentChange = (val) => {
   currentPage.value = val
+  fetchHistoryList()
 }
+
+// 加载历史记录列表
+const fetchHistoryList = async () => {
+  loading.value = true
+  try {
+    const response = await axios.get('/api/history', {
+      params: {
+        keyword: searchKeyword.value,
+        page: currentPage.value,
+        limit: pageSize.value
+      }
+    })
+    if (response.data.code === 200) {
+      const data = response.data.data
+      historyList.value = data.list.map(item => ({
+        id: item.id,
+        keyword: item.topic,
+        template: item.template_name || '',
+        time: item.time,
+        platform: item.platform,
+        content: item.content
+      }))
+      totalRecords.value = data.total
+    } else {
+      ElMessage.error('获取历史记录失败')
+    }
+  } catch (error) {
+    ElMessage.error('网络错误，请检查后端服务是否启动')
+    console.error('Error fetching history:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 加载统计数据
+const fetchStats = async () => {
+  try {
+    const response = await axios.get('/api/stats')
+    if (response.data.code === 200) {
+      stats.value = response.data.data
+    }
+  } catch (error) {
+    console.error('Error fetching stats:', error)
+  }
+}
+
+// 页面加载时获取数据
+onMounted(() => {
+  fetchHistoryList()
+  fetchStats()
+})
 
 // ================= 3. 操作事件 =================
 
@@ -103,9 +148,23 @@ const exportToTxt = (row) => {
 }
 
 // 删除
-const deleteItem = (id) => {
-  historyList.value = historyList.value.filter(item => item.id !== id)
-  ElMessage.success('删除成功！')
+const deleteItem = async (id) => {
+  try {
+    const response = await axios.delete(`/api/history/${id}`)
+    if (response.data.code === 200) {
+      ElMessage.success('删除成功！')
+      // 重新加载列表
+      fetchHistoryList()
+      fetchStats()
+    } else if (response.data.code === 404) {
+      ElMessage.error('记录不存在')
+    } else {
+      ElMessage.error('删除失败')
+    }
+  } catch (error) {
+    ElMessage.error('网络错误，请检查后端服务是否启动')
+    console.error('Error deleting history:', error)
+  }
 }
 </script>
 
@@ -135,7 +194,7 @@ const deleteItem = (id) => {
 
     <div class="main-body">
       <div class="list-section">
-        <el-table :data="pagedList" stripe border style="width: 100%; height: 450px;">
+        <el-table :data="pagedList" stripe border style="width: 100%; height: 450px;" :loading="loading">
           <el-table-column prop="keyword" label="关键词" min-width="120" show-overflow-tooltip />
           <el-table-column prop="template" label="模板" width="120" />
           <el-table-column prop="platform" label="平台" width="90" />
@@ -153,7 +212,7 @@ const deleteItem = (id) => {
           <el-pagination 
             background 
             layout="total, prev, pager, next" 
-            :total="filteredList.length" 
+            :total="totalRecords" 
             :page-size="pageSize"
             :current-page="currentPage"
             @current-change="handleCurrentChange"

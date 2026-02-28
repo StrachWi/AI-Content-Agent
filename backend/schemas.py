@@ -40,3 +40,30 @@ class GenerateRequest(BaseModel):
     style: Optional[str] = "吸引人"  # 风格
     emotion: Optional[str] = "积极"  # 情感
     length: Optional[str] = "200字左右"  # 字数
+
+
+# --- 4. 给历史记录组用的模型 ---
+class HistoryCreate(BaseModel):
+    topic: str  # 创作主题
+    platform: str  # 发布平台
+    content: str  # AI生成内容
+    template_name: str  # 使用模板名称
+
+
+class HistoryRead(BaseModel):
+    id: int
+    topic: str
+    time: str  # 格式为 YYYY-MM-DD HH:mm
+    platform: str
+    content: str
+
+    class Config:
+        from_attributes = True
+
+
+# --- 5. 统计数据模型 ---
+class StatsData(BaseModel):
+    total: int  # 总记录数
+    today: int  # 今日生成数
+    hotTemplate: str  # 使用次数最多的模板名称
+    chartData: list[int]  # 近 7 天每日生成数量数组

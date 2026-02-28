@@ -70,6 +70,9 @@ async def generate_content(payload: GenerateRequest, db: Session = Depends(get_d
     # 4. 自动保存到历史记录 (为第4组提供数据)
     new_history = History(
         template_id=template.id,
+        template_name=template.name,
+        topic=payload.topic or "",
+        platform=payload.platform or "",
         user_input=payload.keyword,
         ai_result=ai_text
     )
