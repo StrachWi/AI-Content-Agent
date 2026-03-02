@@ -56,7 +56,7 @@ const handleGenerate = async () => {
     ElMessage.warning('请填写核心关键词/需求')
     return
   }
-  
+  inputData.value.topic = inputData.value.keywords;
   isLoading.value = true
   hasResult.value = false
   

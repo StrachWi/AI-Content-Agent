@@ -5,8 +5,8 @@ import { ElMessage, ElMessageBox, ElDialog } from 'element-plus'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-// 后端 API 地址
-const API_BASE = 'http://127.0.0.1:8000/api/templates'
+// 🚀 核心修改：改为相对路径，让请求走 Vite 代理！
+const API_BASE = '/api/templates'
 
 // --- 数据区 ---
 const tableData = ref([])
@@ -338,7 +338,6 @@ onMounted(fetchList)
 
 <template>
   <div class="material-container">
-    <!-- 左侧列表区 -->
     <div class="left-panel" :class="{ 'shrink': showEditor }">
       <div class="top-bar">
         <span class="page-title">素材库管理</span>
@@ -376,7 +375,6 @@ onMounted(fetchList)
       </el-table>
     </div>
 
-    <!-- 居中对话框：编辑/新增模板 -->
     <el-dialog
       v-model="dialogVisible"
       :title="isEditMode ? '编辑模板' : '新增模板'"
@@ -385,7 +383,6 @@ onMounted(fetchList)
       draggable
     >
       <div class="editor-container">
-        <!-- 左侧：表单 -->
         <div class="editor-form">
           <el-form label-position="top" class="panel-form">
             <el-form-item label="模板名称 (必填)">
@@ -414,7 +411,6 @@ onMounted(fetchList)
           </el-form>
         </div>
         
-        <!-- 右侧：占位符边栏 -->
         <div class="placeholder-sidebar">
           <h4>可选关键词</h4>
           <div class="placeholder-list">
@@ -456,7 +452,7 @@ onMounted(fetchList)
   display: flex;
   height: calc(100vh - 60px); /* 让容器有稳定高度（header 60px） */
   gap: 20px;
-  overflow: visible;          /* ✅ 不裁剪右侧面板动画 */
+  overflow: visible;         /* ✅ 不裁剪右侧面板动画 */
 }
 
 

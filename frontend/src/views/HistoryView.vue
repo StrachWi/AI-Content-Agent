@@ -1,60 +1,31 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
 
 // ================= 1. 状态 =================
 const historyList = ref([])
 const loading = ref(false)
-const stats = ref({
-  total: 0,
-  today: 0,
-  hotTemplate: '暂无数据'
-})
+const stats = ref({ total: 0, today: 0, hotTemplate: '暂无数据' })
 
 // 筛选与分页状态
 const searchKeyword = ref('')
-const dateRange = ref('') // 格式为 [Date, Date]
+const dateRange = ref('') 
 const currentPage = ref(1)
 const pageSize = ref(4)
 const totalRecords = ref(0)
 
-// 查看/复制弹窗状态
+// 弹窗状态
 const dialogVisible = ref(false)
 const currentContent = ref('')
 
-// ================= 2. 核心逻辑 (纯前端实现) =================
+// ================= 2. 核心逻辑 (对接后端版) =================
 
-// 综合过滤：同时处理【关键词搜索】和【时间范围筛选】
-const filteredList = computed(() => {
-  let result = historyList.value
-
-  // 1. 关键词过滤
-  if (searchKeyword.value) {
-    result = result.filter(item => 
-      item.keyword.includes(searchKeyword.value) || item.template.includes(searchKeyword.value)
-    )
-  }
-
-  // 2. 时间范围过滤
-  if (dateRange.value && dateRange.value.length === 2) {
-    // 将选中的日期转为时间戳方便比较
-    const start = new Date(dateRange.value[0]).getTime()
-    const end = new Date(dateRange.value[1]).getTime()
-    
-    result = result.filter(item => {
-      const itemTime = new Date(item.time).getTime()
-      return itemTime >= start && itemTime <= end
-    })
-  }
-  
-  return result
-})
-
-// 分页截取：从过滤后的数据中，根据当前页码截取对应的数据
-const pagedList = computed(() => {
-  return historyList.value
-})
+// 当搜索条件改变时，重置回第一页并重新请求
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchHistoryList()
+}
 
 // 分页页码改变触发
 const handleCurrentChange = (val) => {
@@ -62,30 +33,48 @@ const handleCurrentChange = (val) => {
   fetchHistoryList()
 }
 
-// 加载历史记录列表
+// 核心：加载历史记录列表
 const fetchHistoryList = async () => {
   loading.value = true
   try {
+    // 解析时间参数传给后端
+    let startDate = ''
+    let endDate = ''
+    if (dateRange.value && dateRange.value.length === 2) {
+      startDate = dateRange.value[0]
+      endDate = dateRange.value[1]
+    }
+
     const response = await axios.get('/api/history', {
       params: {
-        keyword: searchKeyword.value,
+        keyword: searchKeyword.value, // 把关键词传给后端
+        startDate: startDate,         // 把时间传给后端
+        endDate: endDate,
         page: currentPage.value,
         limit: pageSize.value
       }
     })
+
     if (response.data.code === 200) {
       const data = response.data.data
-      historyList.value = data.list.map(item => ({
-        id: item.id,
-        keyword: item.topic,
-        template: item.template_name || '',
-        time: item.time,
-        platform: item.platform,
-        content: item.content
-      }))
+      const rawList = data.list || []
+      
+      // 映射后端字段，顺手做个“防守”过滤掉测试数据
+      historyList.value = rawList
+        .filter(item => item.user_input !== '好物推荐' && item.topic !== '好物推荐') 
+        .map(item => ({
+          id: item.id,
+          // 兼容后端乱七八糟的命名（他传什么我们就接什么）
+          keyword: item.user_input || item.topic || item.keyword || '无', 
+          template: item.template_name || item.template || '',
+          time: item.time || '暂无时间',
+          platform: item.platform,
+          content: item.ai_result || item.content || ''
+        }))
+        
       totalRecords.value = data.total
     } else {
-      ElMessage.error('获取历史记录失败')
+      ElMessage.error(response.data.msg || '获取历史记录失败')
     }
   } catch (error) {
     ElMessage.error('网络错误，请检查后端服务是否启动')
@@ -107,21 +96,17 @@ const fetchStats = async () => {
   }
 }
 
-// 页面加载时获取数据
 onMounted(() => {
   fetchHistoryList()
   fetchStats()
 })
 
 // ================= 3. 操作事件 =================
-
-// 查看并打开弹窗
 const viewContent = (row) => {
   currentContent.value = row.content
   dialogVisible.value = true
 }
 
-// 复制文案到剪贴板
 const copyText = async () => {
   try {
     await navigator.clipboard.writeText(currentContent.value)
@@ -132,9 +117,9 @@ const copyText = async () => {
   }
 }
 
-// 导出 TXT
 const exportToTxt = (row) => {
-  const textContent = `【关键词】${row.keyword}\n【平台】${row.platform}\n【生成时间】${row.time}\n\n【文案正文】\n${row.content}`
+  // ✅ 已修改：导出文件中的抬头改为“核心话题”
+  const textContent = `【核心话题】${row.keyword}\n【平台】${row.platform}\n【生成时间】${row.time}\n\n【文案正文】\n${row.content}`
   const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -147,23 +132,18 @@ const exportToTxt = (row) => {
   ElMessage.success('导出成功！')
 }
 
-// 删除
 const deleteItem = async (id) => {
   try {
     const response = await axios.delete(`/api/history/${id}`)
     if (response.data.code === 200) {
       ElMessage.success('删除成功！')
-      // 重新加载列表
       fetchHistoryList()
       fetchStats()
-    } else if (response.data.code === 404) {
-      ElMessage.error('记录不存在')
     } else {
       ElMessage.error('删除失败')
     }
   } catch (error) {
     ElMessage.error('网络错误，请检查后端服务是否启动')
-    console.error('Error deleting history:', error)
   }
 }
 </script>
@@ -182,23 +162,26 @@ const deleteItem = async (id) => {
           end-placeholder="结束日期"
           style="width: 260px; margin-right: 15px;"
           value-format="YYYY-MM-DD"
+          @change="handleSearch"
         />
         <el-input 
           v-model="searchKeyword" 
-          placeholder="输入关键词或模板搜索" 
+          placeholder="输入关键词并回车" 
           style="width: 200px; margin-right: 15px;"
           clearable
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
         />
       </div>
     </div>
 
     <div class="main-body">
       <div class="list-section">
-        <el-table :data="pagedList" stripe border style="width: 100%; height: 450px;" :loading="loading">
-          <el-table-column prop="keyword" label="关键词" min-width="120" show-overflow-tooltip />
+        <el-table :data="historyList" stripe border style="width: 100%; height: 450px;" :loading="loading">
+          <el-table-column prop="keyword" label="核心话题" min-width="120" show-overflow-tooltip />
           <el-table-column prop="template" label="模板" width="120" />
           <el-table-column prop="platform" label="平台" width="90" />
-          <el-table-column prop="time" label="生成时间" width="120" />
+          <el-table-column prop="time" label="生成时间" width="160" />
           <el-table-column label="操作" width="220" fixed="right">
             <template #default="scope">
               <el-button link type="primary" @click="viewContent(scope.row)">查看/复制</el-button>
