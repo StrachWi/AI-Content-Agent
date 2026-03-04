@@ -25,12 +25,64 @@ const inputData = ref({
   length: '200字左右'
 })
 
+const STORAGE_KEY = 'generate_page_data'
+
+// 新增：保存所有数据到 localStorage
+const saveAllData = () => {
+  const dataToSave = {
+    inputData: { ...inputData.value },
+    resultData: { ...resultData.value },
+    hasResult: hasResult.value,
+    isEdit: isEdit.value
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave))
+  console.log('数据已保存到 localStorage')
+}
+
+// 新增：从 localStorage 恢复数据
+const restoreData = () => {
+  const savedStr = localStorage.getItem(STORAGE_KEY)
+  if (savedStr) {
+    try {
+      const savedData = JSON.parse(savedStr)
+      
+      // 恢复输入参数（避免覆盖模板名）
+      if (savedData.inputData) {
+        const currentTemplate = inputData.value.template
+        inputData.value = { ...savedData.inputData }
+        // 保持模板名不被覆盖
+        if (currentTemplate) {
+          inputData.value.template = currentTemplate
+        }
+      }
+      
+      // 恢复结果数据
+      if (savedData.resultData) {
+        resultData.value = { ...savedData.resultData }
+      }
+      
+      // 恢复状态
+      if (savedData.hasResult !== undefined) {
+        hasResult.value = savedData.hasResult
+      }
+      if (savedData.isEdit !== undefined) {
+        isEdit.value = savedData.isEdit
+      }
+      
+      console.log('数据已从 localStorage 恢复')
+    } catch (error) {
+      console.error('恢复数据失败:', error)
+      localStorage.removeItem(STORAGE_KEY) // 清理损坏的数据
+    }
+  }
+}
+
 const resultData = ref({
   douyin: '',
   redbook: ''
 })
 
-// --- 初始化：逻辑保持不变 ---
+// --- 初始化 ---
 onMounted(() => {
   const templateStr = localStorage.getItem('selectedTemplate')
   if (templateStr) {
@@ -38,11 +90,45 @@ onMounted(() => {
     // 自动回填模板名称
     inputData.value.template = template.name
     
-    //  如果模板里自带了平台属性，自动填入 platform 字段
+    // 如果模板里自带了平台属性，自动填入 platform 字段
     if (template.platform) inputData.value.platform = template.platform
     
     ElMessage.success(`已自动加载模板：${template.name}`)
   }
+  
+  // 新增：恢复保存的数据
+  restoreData()
+})
+import { watch } from 'vue'
+
+// 监听 inputData 的变化（深度监听）
+watch(
+  () => ({ ...inputData.value }), // 使用展开操作符创建新对象触发监听
+  (newVal, oldVal) => {
+    // 延迟保存，避免频繁操作
+    setTimeout(() => {
+      saveAllData()
+    }, 500)
+  },
+  { deep: true }
+)
+
+// 监听 resultData 的变化
+watch(
+  () => ({ ...resultData.value }),
+  () => {
+    setTimeout(() => {
+      saveAllData()
+    }, 500)
+  },
+  { deep: true }
+)
+
+// 监听状态变化
+watch([hasResult, isEdit], () => {
+  setTimeout(() => {
+    saveAllData()
+  }, 500)
 })
 
 // --- 逻辑 ---
@@ -122,20 +208,23 @@ const handleGenerate = async () => {
     
     // 处理响应
     if (responseData && responseData.code === 200) {
-      const data = responseData.data
-      
-      // 后端只返回一个 result，先显示相同的内容
-      resultData.value.douyin = data.result
-      resultData.value.redbook = data.result  // 暂时显示相同内容
-      
-      hasResult.value = true
-      ElMessage.success('文案生成成功！')
-      
-      // 可选：保存历史记录ID
-      if (data.history_id) {
-        console.log('历史记录ID:', data.history_id)
-      }
-    } else {
+  const data = responseData.data
+  
+  // 后端只返回一个 result，先显示相同的内容
+  resultData.value.douyin = data.result
+  resultData.value.redbook = data.result  // 暂时显示相同内容
+  
+  hasResult.value = true
+  ElMessage.success('文案生成成功！')
+  
+  // 新增：立即保存数据
+  saveAllData()
+  
+  // 可选：保存历史记录ID
+  if (data.history_id) {
+    console.log('历史记录ID:', data.history_id)
+  }
+}else {
       // 处理业务错误
       const errorMsg = responseData?.msg || '生成失败，请稍后重试'
       ElMessage.error(errorMsg)
