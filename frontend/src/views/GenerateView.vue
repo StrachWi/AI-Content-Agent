@@ -250,7 +250,27 @@ const handleGenerate = async () => {
     isLoading.value = false
     }
 }
-
+const clearSavedData = () => {
+  localStorage.removeItem(STORAGE_KEY)
+  // 重置表单（但保留模板）
+  const currentTemplate = inputData.value.template
+  inputData.value = {
+    template: currentTemplate,
+    keywords: '',
+    identity: '资深博主',
+    genre: '种草文案',
+    time: '当下',
+    platform: '小红书',
+    topic: '',
+    style: '真诚',
+    emotion: '激动',
+    length: '200字左右'
+  }
+  resultData.value = { douyin: '', redbook: '' }
+  hasResult.value = false
+  isEdit.value = false
+  ElMessage.success('已清空所有输入和结果')
+}
 const copyText = (text) => {
   navigator.clipboard.writeText(text)
   ElMessage.success('已复制到剪贴板')
@@ -377,6 +397,14 @@ const saveContent = async () => {
         <el-button type="success" @click="copyText(resultData.redbook)">复制小红书文案</el-button>
         <el-button plain @click="handleGenerate">重新生成</el-button>
       </div>
+      <div class="btn-area">
+    <el-button type="primary" size="large" :loading="isLoading" @click="handleGenerate">
+      {{ isLoading ? 'AI 正在思考中...' : '一键生成文案' }}
+    </el-button>
+    <el-button type="default" size="large" @click="clearSavedData" style="margin-left: 10px;">
+      清空重填
+    </el-button>
+  </div>
     </div>
 
   </div>
